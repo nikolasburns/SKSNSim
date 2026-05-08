@@ -1,0 +1,3 @@
+
+export SKSNSIMDATADIR="${PWD}/data"
+export SKSNSIMINSTALLDIR="${PWD}"
