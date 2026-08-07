@@ -326,6 +326,7 @@ class SKSNSimVectorSNGenerator {
     int m_sn_time[3];
     double m_sn_dir[3];
     double m_distance_kpc;
+    bool m_sn_dir_set;  // added for sndir functionality (patch)
 
     // double m_max_hit_probability; // maximum of (flux) x (xsec) // should be updated with new flux or xsec models
 
@@ -385,6 +386,16 @@ class SKSNSimVectorSNGenerator {
     int SetRUNNUM(const int r){ m_runnum = r; return GetRUNNUM(); }
     int GetSubRUNNUM() const { return m_subrunnum; }
     int SetSubRUNNUM(const int r){ m_subrunnum = r; return GetSubRUNNUM(); }
+
+    // Added for sndir functionality (patch)
+    void SetSNDir(const double x, const double y, const double z) {
+      m_sn_dir[0] = x;
+      m_sn_dir[1] = y;
+      m_sn_dir[2] = z;
+      m_sn_dir_set = true;
+    }
+    const double* GetSNDir() const { return m_sn_dir; }
+    bool GetSNDirSet() const { return m_sn_dir_set; }
 };
 
 #endif

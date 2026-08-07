@@ -140,6 +140,7 @@ void SKSNSimUserConfiguration::ShowHelpSN(const char *argv0){
     << " [-m,--snmodel model_name]"
     << " [--nuosc 0(NONE)/1(NORMAL)/2(INVERTED)]"
     << " [-d,--distance distance_in_kpc]"
+    << " [--sndir x,y,z]"  // added for sndir (patch)
     << " [-g,--fillevent {0(no: just calculate expected num of evt)/1(yes: fill kinematics for detector sim.)}]"
     << " [--neventsperfile numberofevents]"
     << " [-s,--seed randomseed]"
@@ -155,7 +156,7 @@ void SKSNSimUserConfiguration::ShowHelpSN(const char *argv0){
     << " {outputdirectory}"
     << std::endl
     << std::endl;
-  std::cout << "Note: {} is essencial arguments, and [] is optional arguments" << std::endl << std::endl;
+  std::cout << "Note: {} is essential arguments, and [] is optional arguments" << std::endl << std::endl;  // patch, for clarity.
   std::cout << "Usage: for old argument format" << std::endl
     << argv0
     << " {model_name}"
@@ -171,6 +172,8 @@ void SKSNSimUserConfiguration::ShowHelpSN(const char *argv0){
     << " -m,--snmodel {model_name}: name of SN flux model (default = " << SKSNSimUserConfiguration::GetDefaultSNModelName() << " ) " << std::endl
     << " --nuosc {int}: neutrino oscillation model: 0=NONE / 1=NORMAL / 2=INVERTED ( default = " << (int)SKSNSimUserConfiguration::GetDefaultNeutrinoOscType() << " )" << std::endl
     << " -d,--distance {distance_in_kpc}: distance from SN in unit of kpc ( default = " << SKSNSimUserConfiguration::GetDefaultSNDistanceKPC() << " kpc)" << std::endl
+    << " --sndir {x,y,z}: SN direction in detector coordinates, comma-seperated unit vector"  // added for sndir (patch)
+       " (default = 0,0,-1 i.e., SN below detector)" << std::endl  // added for sndir (patch)
     << " -g,--fillevent [int]: if generate event kinematics for detector simulator: 0 = \"NO(just calculate expected num of evt) / 1 = YES (fill kinematics for detector sim.) (default = " << SKSNSimUserConfiguration::GetDefaultVectorGeneration() << " ). If you just specify \"-g\", turned ON" << std::endl
     << " --neventsperfile {numberofevents}: number of events in one file (default = " << SKSNSimUserConfiguration::GetDefaultNumEventsPerFile() << " )" << std::endl
     << " -s,--seed {randomseed}: random seed (default = " << SKSNSimUserConfiguration::GetDefaultRandomSeed() << " )" << std::endl
@@ -294,6 +297,7 @@ void SKSNSimUserConfiguration::LoadFromArgsSN(int argc, char *argv[]){
       {"runnum",        required_argument, 0,   0},
       {"subrunnum",     required_argument, 0,   0},
       {"outputformat",  required_argument, 0,   0}, // 17
+      {"sndir",         required_argument, 0,   0}, // index 18 --> Added for sndir (patch)
       {0,                               0, 0,   0}
     };
 
@@ -328,6 +332,12 @@ void SKSNSimUserConfiguration::LoadFromArgsSN(int argc, char *argv[]){
           case 15: SetRunnum(std::atoi(optarg)); break;
           case 16: SetSubRunnum(std::atoi(optarg)); break;
           case 17: SetOFileMode( std::string(optarg) ); break;
+          case 18: { // patch for sndir
+            double x=0., y=0., z=-1.;
+            sscanf(optarg, "%lf,%lf,%lf", &x, &y, &z);
+            SetSNDir(x,y,z);
+            break;
+          }
           default:
             ShowHelpSN(argv[0]);
             exit(EXIT_FAILURE);
@@ -395,6 +405,8 @@ void SKSNSimUserConfiguration::Dump() const {
   std::cout << "Runnum = " << GetRunnum() << std::endl;
   std::cout << "SubRunnum = " << GetSubRunnum() << std::endl;
   std::cout << "SNDistance ( kpc ) = " << GetSNDistanceKpc() << std::endl;
+  std::cout << "SNDir = " << GetSNDir()[0] << "," << GetSNDir()[1] << "," << GetSNDir()[2]   // added for sndir (patch)
+            << (m_sn_dir_set ? " (user-set)" : " (default)") << std::endl;  // added for sndir (patch)
   std::cout << "SNBurstFluxModel = " << GetSNBurstFluxModel() << std::endl;
   std::cout << "DSNBFluxModel = " << GetDSNBFluxModel() << std::endl;
   std::cout << "DSNBFlatFlux = " << GetDSNBFlatFlux() << std::endl;
@@ -414,6 +426,7 @@ void SKSNSimUserConfiguration::Apply( SKSNSimVectorSNGenerator &gen ) const {
   gen.SetFlagFillEvent( GetEventVectorGeneration() );
   gen.SetGeneratorVolume( GetEventgenVolume() );
   gen.SetSNDistanceKpc( GetSNDistanceKpc() );
+  if( GetSNDirSet() ) gen.SetSNDir( GetSNDir()[0], GetSNDir()[1], GetSNDir()[2]);  // added for sndir (patch)
   gen.SetGeneratorNuOscType( GetNuOscType() );
   gen.SetRUNNUM( GetRunnum() );
   gen.SetSubRUNNUM( GetSubRunnum() );

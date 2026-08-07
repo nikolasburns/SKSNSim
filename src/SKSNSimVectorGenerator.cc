@@ -3,13 +3,15 @@
  * *********************************/
 #include <functional>
 #include <algorithm>
-#include <TRandom3.h>
+#include "root/TRandom3.h" // patch
 #include "SKSNSimVectorGenerator.hh"
 #include "SKSNSimConstant.hh"
 #include "SKSNSimCrosssection.hh"
 #include "SKSNSimTools.hh"
 #include <typeinfo>
 #include <Math/Integrator.h> // For flux x xsec integration via ROOT
+
+#undef SKINTERNAL  // Bypass fortran implemtation of sn_sun_dir_ (patch)
 
 using namespace SKSNSimPhysConst;
 
@@ -383,6 +385,7 @@ SKSNSimVectorSNGenerator::SKSNSimVectorSNGenerator():
   m_sn_time[0] = 0;
   m_sn_time[1] = 0;
   m_sn_time[2] = 0;
+  m_sn_dir_set = false; // added for sndir functionality (patch)
 
   xsecmodels[XSECTYPE::mXSECIBD]       = std::make_unique<SKSNSimXSecIBDSV>();
   xsecmodels[XSECTYPE::mXSECELASTIC]   = std::make_unique<SKSNSimXSecNuElastic>();
@@ -436,20 +439,28 @@ std::vector<SKSNSimSNEventVector> SKSNSimVectorSNGenerator::GenerateEvents(){
   std::vector<double> OcrsNC[2][14]; // [rctn][ex_state] -> nu_energy -> total-xsec
 
 	/*-----determine SN direction-----*/
+  // patch for sndir functionality
   {
     float sdir[3], ra, dec;
-#ifdef SKITERNAL
-    sn_sundir_( m_sn_date, m_sn_time, sdir, & ra, & dec);
-#else
-    sdir[0] = 0.0;
-    sdir[1] = 0.0;
-    sdir[2] = -1.0;
-#endif
 
-    m_sn_dir[0] = sdir[0];
-    m_sn_dir[1] = sdir[1];
-    m_sn_dir[2] = sdir[2];
-  }
+    // Added for sndir functionality
+    if( m_sn_dir_set ) {
+      sdir[0] = (float)m_sn_dir[0];
+      sdir[1] = (float)m_sn_dir[1];
+      sdir[2] = (float)m_sn_dir[2];
+    } else {
+  #ifdef SKINTERNAL
+      sn_sundir_( m_sn_date, m_sn_time, sdir, & ra, & dec);
+  #else
+      sdir[0] = 0.0;
+      sdir[1] = 0.0;
+      sdir[2] = -1.0;
+  #endif
+    }
+      m_sn_dir[0] = sdir[0];
+      m_sn_dir[1] = sdir[1];
+      m_sn_dir[2] = sdir[2];
+    }
 
   const int flag_event = GetFlagFillEvent();
   const SKSNSimXSecNuElastic::FLAGETHR flag_elastic_thr = flag_event!=0? SKSNSimXSecNuElastic::ETHROFF : SKSNSimXSecNuElastic::ETHRON;
@@ -627,6 +638,11 @@ std::vector<SKSNSimSNEventVector> SKSNSimVectorSNGenerator::GenerateEvents(){
   double time;
   double nuEne;
   for(Int_t i_time =0; i_time < tNBins; i_time++) {
+
+    // Progress report for long calculation
+    if( tNBins > 0 && i_time % (tNBins/20 > 0 ? tNBins/20 : 1) == 0 )
+      std::cout << "Process loop progress: " << i_time << " / " << tNBins
+                << " (" << (100*i_time/tNBins) << "%)" << std::endl;
 
     time = tStart + (double(i_time)+0.5)*tBinSize; //center value of each bin[s]
     int itime_sn = int(time);
@@ -1120,6 +1136,10 @@ void SKSNSimVectorSNGenerator::FillEvent(std::vector<SKSNSimSNEventVector> &evt_
 
   std::cout << "start event loop in FillEvent" << std::endl; //nakanisi
   for( uint iEvt = 0; iEvt < evt_buffer.size(); iEvt++ ){
+
+    // Patch to provide progress information for long event generation
+    if( iEvt % 100 == 0 )
+      std::cout << "FillEvent progress: " << iEvt << " / " << evt_buffer.size() << std::endl;
 
     iSkip = 0;
 
