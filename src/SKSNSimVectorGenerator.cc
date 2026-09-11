@@ -511,13 +511,7 @@ std::vector<SKSNSimSNEventVector> SKSNSimVectorSNGenerator::GenerateEvents(){
 
 	/*-----determine SN direction-----*/
 
-  // patch for sndir functionality
-
-    if( m_sn_dir_set ) {
-      sdir[0] = (float)m_sn_dir[0];
-      sdir[1] = (float)m_sn_dir[1];
-      sdir[2] = (float)m_sn_dir[2];
-    } else {
+    if( !m_sn_dir_set ) {
       float sdir[3], ra, dec;
       sn_sundir_( m_sn_date, m_sn_time, sdir, & ra, & dec);
       m_sn_dir[0] = sdir[0];
