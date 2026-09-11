@@ -44,10 +44,12 @@ class SKSNSimBinnedFluxModel : public SKSNSimFluxModel {
     virtual int GetNBinsTime() const = 0;
     virtual double GetBinWidthEne(int b) const = 0;
     virtual double GetBinWidthTime(int b) const = 0;
+    virtual const std::vector<double>& GetTimeBins() const = 0;
 };
 
 class SKSNSimDSNBFluxCustom : public SKSNSimBinnedFluxModel {
   private:
+    std::vector<double> tmesh; // useless, needed to have GetTimeBins
     std::unique_ptr<std::vector<std::pair<double,double>>> ene_flux_v; /* size_t -> <energy, flux> */
     double lower_energy_bin_width;
     double upper_energy_bin_width;
@@ -85,6 +87,7 @@ class SKSNSimDSNBFluxCustom : public SKSNSimBinnedFluxModel {
     int GetNBinsTime() const { return 1; }
     double GetBinWidthEne(int b) const { return getBinWidth(); }
     double GetBinWidthTime(int b) const { return 0.0; }
+    const std::vector<double>& GetTimeBins() const { return tmesh; }
     double CalcIntegratedFlux() const;
     double FindMaxFluxTime() const {return 0.0;}
 };
@@ -114,6 +117,8 @@ class SKSNSimSNFluxCustom : public SKSNSimBinnedFluxModel {
     double GetBinWidthEne(int b) const { return getBinWidthEne(b); }
     double GetBinWidthTime(int b) const { return getBinWidthTime(b); } 
     double FindMaxFluxTime() const {return 0.0;} // TODO at this momenent, this function does NOT work
+    const std::vector<double>& GetTimeBins() const { return tmesh; }
+
 };
 const std::set<SKSNSimFluxModel::FLUXNUTYPE> SKSNSimSNFluxCustom::supportedType = {};
 
@@ -158,6 +163,7 @@ class SKSNSimSNFluxNakazatoFormat : public SKSNSimBinnedFluxModel {
     double GetBinWidthEne(int b)  const { return flux->GetBinWidthEne(b); }
     double GetBinWidthTime(int b) const { return flux->GetBinWidthTime(b); }
     double FindMaxFluxTime() const {return flux->FindMaxFluxTime();}
+    const std::vector<double>& GetTimeBins() const { return flux->GetTimeBins(); }
 };
 
 class SKSNSimSNFluxNakazato : public SKSNSimBinnedFluxModel {
@@ -184,6 +190,7 @@ class SKSNSimSNFluxNakazato : public SKSNSimBinnedFluxModel {
     double GetBinWidthEne(int b)  const { return flux->GetBinWidthEne(b); }
     double GetBinWidthTime(int b) const { return flux->GetBinWidthTime(b); }
     double FindMaxFluxTime() const {return flux->FindMaxFluxTime();}
+    const std::vector<double>& GetTimeBins() const { return flux->GetTimeBins(); }
 };
 
 class SKSNSimFluxDSNBHoriuchi : SKSNSimFluxModel {
