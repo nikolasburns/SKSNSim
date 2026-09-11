@@ -43,7 +43,7 @@ int main( int argc, char ** argv )
 	//if(argc > 6) seedIO = atoi(argv[6]);
   //
   //
-  auto config = std::make_unique<SKSNSimUserConfiguration>();
+  auto config = std::make_unique<SKSNSimUserConfiguration>(SKSNSimUserConfiguration::MODEGENERATOR::kSNBURST);
   config->LoadFromArgsSN(argc, argv);
   config->Dump();
 
