@@ -374,10 +374,12 @@ SKSNSimVectorSNGenerator::SKSNSimVectorSNGenerator():
   m_generator_time_min (0.0),
   m_generator_time_max (20.0),
   m_time_nbins(20000),
+  m_time_bin_size(0),
   m_fill_event(true),
   m_generator_volume( SKSNSIMENUM::TANKVOLUME::kIDFULL ),
   m_nuosc_type( SKSNSIMENUM::NEUTRINOOSCILLATION::kNONE ),
-  m_distance_kpc(10.)
+  m_distance_kpc(10.),
+  m_is_combined(false)
 {
   m_sn_date[0] = 2011;
   m_sn_date[1] = 3;
@@ -394,14 +396,78 @@ SKSNSimVectorSNGenerator::SKSNSimVectorSNGenerator():
   xsecmodels[XSECTYPE::mXSECOXYGENNC]  = std::make_unique<SKSNSimXSecNuOxygenNC>();
 }
 
+void SKSNSimVectorSNGenerator::GenerateTimeBins() {
+  const int tNBins    = GetTimeNBins();
+  const double tStart = GetTimeMin();
+  const double tEnd   = GetTimeMax();
+
+  timeBins.clear();
+
+  if ( tNBins != 0 ) {
+    const double tBinSize     = GetTimeBinWidth();
+    for ( int i_time = 0; i_time < tNBins+1; i_time++ ) {
+      timeBins.push_back(tStart + (double(i_time))*tBinSize);
+    }
+
+    std::cout << "Bins: " << timeBins.size() << " [" << timeBins.front() << ", " << timeBins.back() << "]" << std::endl;
+  }
+  else {
+    const double tDefaultBinSize    = GetTimeBinSize();
+
+    std::vector<double> fluxTimeBins;
+    if ( m_is_combined ) {
+      SKSNSimBinnedFluxModel &flux_nuRHD = dynamic_cast<SKSNSimBinnedFluxModel&>(*fluxmodels[0]);
+      SKSNSimBinnedFluxModel &flux_PNSC  = dynamic_cast<SKSNSimBinnedFluxModel&>(*fluxmodels[1]);
+
+      const std::vector<double>& fluxBins_nuRHD = flux_nuRHD.GetTimeBins();
+      const std::vector<double>& fluxBins_PNSC  = flux_PNSC.GetTimeBins();
+      fluxTimeBins.insert(fluxTimeBins.begin(), fluxBins_nuRHD.begin(), fluxBins_nuRHD.end());
+      fluxTimeBins.insert(fluxTimeBins.end(), fluxBins_PNSC.begin(), fluxBins_PNSC.end());
+    }
+    else {
+      SKSNSimBinnedFluxModel &flux = dynamic_cast<SKSNSimBinnedFluxModel&>(*fluxmodels[0]);
+      const std::vector<double>& fluxBins = flux.GetTimeBins();
+      fluxTimeBins.insert(fluxTimeBins.begin(), fluxBins.begin(), fluxBins.end());
+    }
+
+    std::sort(fluxTimeBins.begin(), fluxTimeBins.end());
+
+    // cleanup fluxTimeBins
+    unsigned int i_time = 1;
+    while ( i_time < fluxTimeBins.size() ) {
+      if ( (fluxTimeBins[i_time] - fluxTimeBins[i_time-1]) < 1e-10 ) {
+        fluxTimeBins.erase(fluxTimeBins.begin()+i_time);
+      }
+      i_time += 1;
+    }
+
+    // Make time bins vector
+    double lastTime = std::max(tStart, fluxTimeBins[0]);
+    timeBins.push_back(lastTime);
+
+    i_time = 0;
+    while( i_time < fluxTimeBins.size() && fluxTimeBins[i_time] < tStart ) { i_time += 1; }
+
+    while ( i_time < fluxTimeBins.size()-1 && lastTime < tEnd ) {
+
+      double binSize = tDefaultBinSize;
+      double nextTime = std::min(fluxTimeBins[i_time+1], tEnd);
+
+      while ( (fluxTimeBins[i_time+1] - fluxTimeBins[i_time]) < binSize ) { binSize /= 10.0; }
+      
+      while ( lastTime < nextTime ) { 
+        lastTime = std::min( lastTime + binSize, nextTime );
+        timeBins.push_back(lastTime);
+      }
+
+      i_time += 1;
+    }
+  }
+}
+
+
 std::vector<SKSNSimSNEventVector> SKSNSimVectorSNGenerator::GenerateEvents(){
   std::vector<SKSNSimSNEventVector> evt_buffer;
-  SKSNSimBinnedFluxModel &flux = dynamic_cast<SKSNSimBinnedFluxModel&>(*fluxmodels[0]); // TODO selectable flux
-  if(&flux == NULL) {
-    std::cerr << "In GenerateEvents() no appropriate flux model (binned flux)" << std::endl;
-    evt_buffer.clear();
-    return evt_buffer;
-  }
 
   SKSNSimXSecIBDSV       &xsecibd         = dynamic_cast<SKSNSimXSecIBDSV&>(      *xsecmodels[XSECTYPE::mXSECIBD]);
   SKSNSimXSecNuElastic   &xsecnuela       = dynamic_cast<SKSNSimXSecNuElastic&>(  *xsecmodels[XSECTYPE::mXSECELASTIC]);
@@ -409,16 +475,22 @@ std::vector<SKSNSimSNEventVector> SKSNSimVectorSNGenerator::GenerateEvents(){
   SKSNSimXSecNuOxygenSub &xsecnuoxygensub = dynamic_cast<SKSNSimXSecNuOxygenSub&>(*xsecmodels[XSECTYPE::mXSECOXYGENSUB]);
   SKSNSimXSecNuOxygenNC  &xsecnuoxygennc  = dynamic_cast<SKSNSimXSecNuOxygenNC&>( *xsecmodels[XSECTYPE::mXSECOXYGENNC]);
 
-	std::cout << "Prcess of sn_burst side" << std::endl;//nakanisi
+	std::cout << "Process of sn_burst side" << std::endl;//nakanisi
+
+  this->GenerateTimeBins();
+
 	/*---- Fill total cross section into array to avoid repeating calculation ----*/
 	const double nuEne_min    = GetEnergyMin();
 	const double nuEne_max    = GetEnergyMax();
   const int nuEneNBins      = GetEnergyNBins();
   const double nuEneBinSize = GetEnergyBinWidth();
-  const int tNBins          = GetTimeNBins();
-  const double tBinSize     = GetTimeBinWidth();
   const double tStart       = GetTimeMin();
   const double tEnd         = GetTimeMax();
+  const double tauDecay     = GetTauDecay();
+  const double tRevive      = GetTimeRevive();
+  const double tShift       = GetTimeShift();
+  const int tNBins          = timeBins.size();
+
   std::vector<double> totcrsIBD(nuEneNBins, 0.); // nu_energy -> total-xsec
   std::vector<double> totcrsNue(nuEneNBins, 0.); // nu_energy -> total-xsec
   std::vector<double> totcrsNueb(nuEneNBins, 0.); // nu_energy -> total-xsec
@@ -439,24 +511,16 @@ std::vector<SKSNSimSNEventVector> SKSNSimVectorSNGenerator::GenerateEvents(){
   std::vector<double> OcrsNC[2][14]; // [rctn][ex_state] -> nu_energy -> total-xsec
 
 	/*-----determine SN direction-----*/
-  // patch for sndir functionality
-  {
-    float sdir[3], ra, dec;
 
-    // Added for sndir functionality
-    if( m_sn_dir_set ) {
-      sdir[0] = (float)m_sn_dir[0];
-      sdir[1] = (float)m_sn_dir[1];
-      sdir[2] = (float)m_sn_dir[2];
-    } else {
-  #ifdef SKINTERNAL
+    if( !m_sn_dir_set || (m_sn_dir[0] == 0.0 && m_sn_dir[1] == 0.0 && m_sn_dir[2] == 0.0) ) {
+      float sdir[3], ra, dec;
+#ifdef SKINTERNAL
       sn_sundir_( m_sn_date, m_sn_time, sdir, & ra, & dec);
-  #else
+#else
       sdir[0] = 0.0;
       sdir[1] = 0.0;
       sdir[2] = -1.0;
-  #endif
-    }
+#endif
       m_sn_dir[0] = sdir[0];
       m_sn_dir[1] = sdir[1];
       m_sn_dir[2] = sdir[2];
@@ -633,6 +697,20 @@ std::vector<SKSNSimSNEventVector> SKSNSimVectorSNGenerator::GenerateEvents(){
   std::vector<double> totNcNuxnCh(4,0.);
   std::vector<double> totNcNuxbarnCh(4,0.);
 
+  SKSNSimBinnedFluxModel &flux = dynamic_cast<SKSNSimBinnedFluxModel&>(*fluxmodels[0]); // TODO selectable flux
+  if(&flux == NULL) {
+    std::cerr << "In GenerateEvents() no appropriate flux model (binned flux)" << std::endl;
+    evt_buffer.clear();
+    return evt_buffer;
+  }
+
+  SKSNSimBinnedFluxModel &flux_PNSC = m_is_combined? dynamic_cast<SKSNSimBinnedFluxModel&>(*fluxmodels[1]) : dynamic_cast<SKSNSimBinnedFluxModel&>(*fluxmodels[0]);
+  if(&flux_PNSC == NULL) {
+    std::cerr << "In GenerateEvents() no appropriate PNSC flux model (binned flux)" << std::endl;
+    evt_buffer.clear();
+    return evt_buffer;
+  }
+
 	/*---- loop ----*/
   std::cout << "start loop in Process" << std::endl; //nakanisi
   double time;
@@ -643,21 +721,45 @@ std::vector<SKSNSimSNEventVector> SKSNSimVectorSNGenerator::GenerateEvents(){
     if( tNBins > 0 && i_time % (tNBins/20 > 0 ? tNBins/20 : 1) == 0 )
       std::cout << "Process loop progress: " << i_time << " / " << tNBins
                 << " (" << (100*i_time/tNBins) << "%)" << std::endl;
-
-    time = tStart + (double(i_time)+0.5)*tBinSize; //center value of each bin[s]
+    
+    double tBinSize = (timeBins[i_time+1] - timeBins[i_time]);
+    time = timeBins[i_time] + 0.5 * tBinSize; //center value of each bin[s]
+    //std::cout << i_time << " " << time << " " << tBinSize << std::endl;
+    
     int itime_sn = int(time);
 
     if(itime_sn > (int)(tEnd * 1000.)){
       exit(0);
     }
 
+    double time_f = 1;
+    if ( m_is_combined ) {
+      if ( time <= tShift + tRevive ) time_f = 1;
+      else time_f = exp(-(time-(tShift+tRevive))/tauDecay);
+    }
+
     for(int i_nu_ene =0; i_nu_ene < nuEneNBins; i_nu_ene++) {
 
       const double nu_energy = nuEne_min + ( double(i_nu_ene) + 0.5 ) * nuEneBinSize;
+      
+      double nspcne_tmp;
+      double nspcneb_tmp;
+      double nspcnx_tmp;
 
-      const double nspcne  = flux.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUE); //Nue
-      const double nspcneb = flux.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUEB); //Nuebar
-      const double nspcnx  = flux.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUX); //Nux or Nuexbar
+      if(time_f == 1) {
+        nspcne_tmp  = flux.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUE);  //Nue
+        nspcneb_tmp = flux.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUEB); //Nuebar
+        nspcnx_tmp  = flux.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUX);  //Nux or Nuexbar
+      }
+      else {
+        nspcne_tmp  = time_f * flux.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUE)  + (1. - time_f) * flux_PNSC.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUE);  //Nue
+        nspcneb_tmp = time_f * flux.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUEB) + (1. - time_f) * flux_PNSC.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUEB); //Nuebar
+        nspcnx_tmp  = time_f * flux.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUX)  + (1. - time_f) * flux_PNSC.GetFlux(nu_energy, time, SKSNSimFluxModel::FLUXNUX);  //Nux or Nuexbar
+      }
+
+      const double nspcne  = nspcne_tmp;  //Nue
+      const double nspcneb = nspcneb_tmp; //Nuebar
+      const double nspcnx  = nspcnx_tmp;  //Nux or Nuexbar
 
       /*----- inverse beta decay -----*/
 
@@ -668,7 +770,6 @@ std::vector<SKSNSimSNEventVector> SKSNSimVectorSNGenerator::GenerateEvents(){
         auto buf = MakeEvent(nuEneBinSize, tBinSize, time, nu_energy, 0 /*nReact*/, - PDG_ELECTRON_NEUTRINO /*nuType*/, rate);
         evt_buffer.insert(evt_buffer.end(), buf.begin(), buf.end());
       }
-
 
       /*----- electron elastic -----*/
 
@@ -985,7 +1086,7 @@ std::vector<SKSNSimSNEventVector> SKSNSimVectorSNGenerator::GenerateEvents(){
       }
     }
 
-    //std::cout << time << " " << totNuebarp << " " << totNueElastic << std::endl;
+    //std::cout << time << " " << totNuebarp << " " << (totNueElastic + totNuebarElastic + totNuxElastic + totNuxbarElastic) << std::endl;
 
   }
   std::cout << "end loop process" << std::endl; //nakanisi

@@ -199,8 +199,8 @@ double SKSNSimSNFluxCustom::GetFlux(const double e, const double t, const FLUXNU
     int j = 1;
     while(ebins[i][j] < e && j<20) j++;
 
-    //cout << "time   " << time << " " << i << " " << tmesh[i] << " " << tmesh[i+1] << endl;
-    //cout << "energy " << energy << " " << j << endl;
+    //std::cout << "time   " << t << " " << i << " " << tmesh[i] << " " << tmesh[i+1] << std::endl;
+    //std::cout << "energy " << e << " " << j << std::endl;
 
     double nspclow, nspchigh, elow, ehigh;
 
@@ -230,7 +230,7 @@ double SKSNSimSNFluxCustom::GetFlux(const double e, const double t, const FLUXNU
       double nspc1 = 0.;
       nspc = (nspc1 - nspc0) * (t - tmesh[i]) / (tmesh[i+1] - tmesh[i]) + nspc0;
     }
-    //cout << nspc << endl;
+    //std::cout << nspc << std::endl;
   }
 
   return nspc;

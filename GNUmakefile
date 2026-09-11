@@ -21,12 +21,13 @@ CXX=g++
 FC=gfortran
 LN = ln -sf
 
-
 CXXFLAGS += -I/mnt/sim/deps/root_v5.34.38_install/include $(shell root-config --cflags --libs) -fPIC -lstdc++ -lgsl -lgslcblas -lm
 CXXFLAGS += -DNO_EXTERN_COMMON_POINTERS -DSKINTERNAL
 CXXFLAGS += $(LOCAL_INC)
 CXXFLAGS += -std=gnu++14
 # SKINTERNAL is now always defined
+# if you want to use lates neutrino oscillation parameter, please comment out next line
+#CXXFLAGS += -DORIGINAL_NUOSCPARAMETER
 
 FCFLAGS += -w -fPIC -lstdc++
 
@@ -65,7 +66,7 @@ MAINBINS = $(patsubst %.cc, bin/%, $(MAINSRCS))
 SKSNSIMLIBOBJS = $(filter obj/SKSNSim%, $(OBJS))
 SKSNSIMLIBOBJS += $(filter obj/elapseday%, $(OBJS))
 
-main: bin obj bin/main_snburst bin/main_dsnb
+main: bin obj bin/main_snburst bin/main_snburst_combined bin/main_dsnb
 
 library: lib lib/libSKSNSim.so
 
@@ -102,6 +103,10 @@ bin/main_dsnb: obj/main_dsnb.o $(OBJS)
 	@LD_RUN_PATH=$(SKOFL) $(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
 
 bin/main_snburst: obj/main_snburst.o $(OBJS)
+	@echo "[SKSNSim] Building executable:	$@..."
+	@LD_RUN_PATH=$(SKOFL) $(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
+
+bin/main_snburst_combined: obj/main_snburst_combined.o $(OBJS)
 	@echo "[SKSNSim] Building executable:	$@..."
 	@LD_RUN_PATH=$(SKOFL) $(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
 

@@ -36,6 +36,7 @@ class SKSNSimUserConfiguration{
     double m_time_min;
     double m_time_max;
     size_t m_time_nbins;
+    double m_time_bin_size;
 
     /* Output file related */
     std::string m_output_directory;
@@ -66,8 +67,16 @@ class SKSNSimUserConfiguration{
     /* Physics related */
     SKSNSIMENUM::NEUTRINOOSCILLATION m_nuosc_type;
     std::string m_snburst_fluxmodel;
+    std::string m_snburst_pnsc_fluxmodel;
     std::string m_dsnb_fluxmodel;
     bool m_dsnb_flatflux;
+
+    double m_time_revive;
+    double m_time_shift;
+    double m_tau_decay;
+
+    double m_sn_dir[3];    // added for sndir (patch)
+    bool m_sn_dir_set;    // added for sndir (patch)
 
     /* Random Generator related */
     unsigned m_random_seed;
@@ -86,13 +95,14 @@ class SKSNSimUserConfiguration{
     static std::string convOFileModeString(MODEOFILE m);
 
   public:
-    void SetDefaultConfiguation() {
+    void SetDefaultConfiguration() {
       m_energy_min = GetDefaultFluxEnergyMin(m_mode_generator);
       m_energy_max = GetDefaultFluxEnergyMax(m_mode_generator);
       m_energy_nbins = GetDefaultEnergyNBins();
       m_time_min = GetDefaultFluxTimeMin();
       m_time_max = GetDefaultFluxTimeMax();
       m_time_nbins = GetDefaultTimeNBins();
+      m_time_bin_size = GetDefaultTimeBinSize();
 
       m_output_directory = GetDefaultOutputDirectory();
       m_outputfile_prefix = GetDefaultOutputPrefix();
@@ -120,8 +130,18 @@ class SKSNSimUserConfiguration{
 
       m_sndistance_kpc = GetDefaultSNDistanceKPC();
       m_snburst_fluxmodel = GetDefaultSNBurstFluxModel();
+      m_snburst_pnsc_fluxmodel = "";
       m_dsnb_fluxmodel = GetDefaultDSNBFluxModel();
       m_dsnb_flatflux = GetDefaultDSNBFlatFlux();
+
+      m_time_revive = GetDefaultTimeRevive();
+      m_time_shift = GetDefaultTimeShift();
+      m_tau_decay = GetDefaultTauDecay();
+
+
+      m_sn_dir[0] = GetDefaultSNDirX();
+      m_sn_dir[1] = GetDefaultSNDirY();
+      m_sn_dir[2] = GetDefaultSNDirZ();
 
       m_nuosc_type = GetDefaultNeutrinoOscType();
 
@@ -131,7 +151,7 @@ class SKSNSimUserConfiguration{
     SKSNSimUserConfiguration( MODEGENERATOR mode = MODEGENERATOR::kDSNB ): 
       m_mode_generator( mode ) {
         m_randomgenerator = std::make_shared<TRandom3>( GetDefaultRandomSeed() );// new TRandom3());
-        SetDefaultConfiguation();
+        SetDefaultConfiguration();
       }
     ~SKSNSimUserConfiguration(){}
 
@@ -151,6 +171,7 @@ class SKSNSimUserConfiguration{
     const static double GetDefaultFluxTimeMin () { return   0. /* sec */;}
     const static double GetDefaultFluxTimeMax () { return 20. /* sec */;}
     const static size_t GetDefaultTimeNBins () { return 20000;}
+    const static size_t GetDefaultTimeBinSize () { return 0.001;}
     const static SKSNSIMENUM::TANKVOLUME GetDefaultEventVolume () { return SKSNSIMENUM::TANKVOLUME::kIDFULL; }
     const static SKSNSIMENUM::NEUTRINOOSCILLATION GetDefaultNeutrinoOscType () { return SKSNSIMENUM::NEUTRINOOSCILLATION::kNONE; }
     const static double GetDefaultSNDistanceKPC () { return 10. /* kpc */;}
@@ -171,6 +192,12 @@ class SKSNSimUserConfiguration{
     const static int GetDefaultRuntimePeriod() { return -1; /* using RuntimeBegin/End */}
     const static bool GetDefaultRuntimeNormalization() { return false; }
     const static double GetDefaultRuntimeNormFactor() { return 24.0; }
+    const static double GetDefaultTimeRevive() { return 300.0e-3; } 
+    const static double GetDefaultTimeShift() { return 50.0e-3; } 
+    const static double GetDefaultTauDecay() { return 30.0e-3; } 
+    const static double GetDefaultSNDirX() { return 0.; }  // Added for sndir argvar (patch)
+    const static double GetDefaultSNDirY() { return 0.; }  // Added for sndir argvar (patch)
+    const static double GetDefaultSNDirZ() { return -1.; }  // Added for sndir argvar (patch)
     const static std::string GetDefaultSNBurstFluxModel () {
       std::string dir;
       if( const char * env_p = std::getenv(DATADIRVARIABLENAME) )
@@ -209,6 +236,7 @@ class SKSNSimUserConfiguration{
     SKSNSimUserConfiguration &SetFluxTimeMin(double t){ m_time_min = t; return *this;}
     SKSNSimUserConfiguration &SetFluxTimeMax(double t){ m_time_max = t; return *this;}
     SKSNSimUserConfiguration &SetTimeNBins(size_t n){ m_time_nbins = n; return *this;}
+    SKSNSimUserConfiguration &SetTimeBinSize(double t){ m_time_bin_size = t; return *this;}
     SKSNSimUserConfiguration &SetNumEvents(size_t n){m_num_events = n; return *this;}
     SKSNSimUserConfiguration &SetNumEventsPerFile(size_t n){m_num_per_file = n; return *this;}
     SKSNSimUserConfiguration &SetNormRuntime(bool t){m_runtime_normalization = t; return *this;}
@@ -230,6 +258,7 @@ class SKSNSimUserConfiguration{
     bool GetSNDirSet() const { return m_sn_dir_set; }
 
     SKSNSimUserConfiguration &SetSNBurstFluxModel(std::string f) { m_snburst_fluxmodel = f; return *this;}
+    SKSNSimUserConfiguration &SetSNBurstPNSCFluxModel(std::string f) { m_snburst_pnsc_fluxmodel = f; return *this;}
     SKSNSimUserConfiguration &SetDSNBFluxModel(std::string f) { m_dsnb_fluxmodel = f; return *this;}
     SKSNSimUserConfiguration &SetDSNBFlatFlux(bool f) { m_dsnb_flatflux = f; return *this;}
     SKSNSimUserConfiguration &SetVectorGeneration(bool f) { m_eventvector_generation = f; return *this;}
@@ -239,6 +268,15 @@ class SKSNSimUserConfiguration{
     SKSNSimUserConfiguration &SetSubRunnum(int r) { m_subrunnum = r; return *this; }
     SKSNSimUserConfiguration &SetOFileMode ( MODEOFILE m ) { m_mode_ofile = m; return *this; }
     SKSNSimUserConfiguration &SetOFileMode ( std::string s, bool exit_if_wrong = true );
+    SKSNSimUserConfiguration &SetTimeRevive(double t){ m_time_revive = t; return *this;}
+    SKSNSimUserConfiguration &SetTimeShift(double t){ m_time_shift = t; return *this;}
+    SKSNSimUserConfiguration &SetTauDecay(double t){ m_tau_decay = t; return *this;}
+
+    SKSNSimUserConfiguration &SetSNDir(double x, double y, double z) { 
+      m_sn_dir[0] = x; m_sn_dir[1] = y; m_sn_dir[2] = z; m_sn_dir_set = true; return *this;
+    }
+    const double* GetSNDir() const { return m_sn_dir; }
+    bool GetSNDirSet() const { return m_sn_dir_set; }
 
     /* Event range related */
     double GetFluxEnergyMin() const { return m_energy_min;}
@@ -247,6 +285,7 @@ class SKSNSimUserConfiguration{
     double GetFluxTimeMin() const { return m_time_min;}
     double GetFluxTimeMax() const { return m_time_max;}
     size_t GetTimeNBins() const { return m_time_nbins;}
+    double GetTimeBinSize() const { return m_time_bin_size;}
 
     /* Output file related */
     std::string GetOutputDirectory() const { return m_output_directory;}
@@ -273,8 +312,13 @@ class SKSNSimUserConfiguration{
     /* SN related */
     double GetSNDistanceKpc() const { return m_sndistance_kpc; }
     std::string GetSNBurstFluxModel() const { return m_snburst_fluxmodel; }
+    std::string GetSNBurstPNSCFluxModel() const { return m_snburst_pnsc_fluxmodel; }
     std::string GetDSNBFluxModel() const { return m_dsnb_fluxmodel; }
     bool GetDSNBFlatFlux() const { return m_dsnb_flatflux; }
+
+    double GetTimeRevive() const { return m_time_revive; }
+    double GetTimeShift() const { return m_time_shift; }
+    double GetTauDecay() const { return m_tau_decay; }
 
     /* Physics related */
     SKSNSIMENUM::NEUTRINOOSCILLATION GetNuOscType() const { return m_nuosc_type; }
