@@ -186,7 +186,7 @@ class SKSNSimUserConfiguration{
     const static double GetDefaultTauDecay() { return 30.0e-3; } 
     const static double GetDefaultSNDirX() { return 0.; }  // Added for sndir argvar (patch)
     const static double GetDefaultSNDirY() { return 0.; }  // Added for sndir argvar (patch)
-    const static double GetDefaultSNDirZ() { return 0.; }  // Added for sndir argvar (patch)
+    const static double GetDefaultSNDirZ() { return -1.; }  // Added for sndir argvar (patch)
     const static std::string GetDefaultSNBurstFluxModel () {
       std::string dir;
       if( const char * env_p = std::getenv(DATADIRVARIABLENAME) )

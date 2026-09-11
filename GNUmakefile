@@ -17,7 +17,7 @@ endif
 include $(SKOFL_ROOT)/config.gmk
 
 CXX=g++
-CXXFLAGS += -DNO_EXTERN_COMMON_POINTERS #-DDEBUG
+CXXFLAGS += -DNO_EXTERN_COMMON_POINTERS -DSKINTERNAL #-DDEBUG
 # if you want to use lates neutrino oscillation parameter, please comment out next line
 #CXXFLAGS += -DORIGINAL_NUOSCPARAMETER
 FC=gfortran
