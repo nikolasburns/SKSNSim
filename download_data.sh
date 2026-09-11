@@ -1,6 +1,7 @@
 #!/bin/sh
 
-UPSTREAMURL="https://github.com/SKSNSim/SKSNSim/releases/download/v1.2.0-data/supernova_data.tar.gz"
+#UPSTREAMURL="https://github.com/SKSNSim/SKSNSim/releases/download/v1.2.0-data/supernova_data.tar.gz"
+UPSTREAMURL="https://github.com/SKSNSim/SKSNSim/releases/download/v1.2.0-data/supernova_data_260508.tar.gz"
 
 if [ -z "${SKSNSIMDATADIR}" ]; then
   echo "Environmental variable \"SKSNSIMDATADIR\" is not defined."
@@ -14,7 +15,7 @@ if [ ! -d ${SKSNSIMDATADIR} ]; then
   mkdir -p $SKSNSIMDATADIR
 fi
 
-target=${SKSNSIMDATADIR}/supernova_data.tar.gz
+target=${SKSNSIMDATADIR}/supernova_data_260508.tar.gz
 
 which wget || (echo "no wget on your system. Please download manually from \"${UPSTREAMURL}\"." && exit 1)
 wget -O $target $UPSTREAMURL
