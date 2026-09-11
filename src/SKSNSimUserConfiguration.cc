@@ -37,10 +37,10 @@ bool SKSNSimUserConfiguration::CheckFluxTimeMin() const {
     std::cerr << "FluxTimeMin: bad (" << m_time_min << "): smaller than max (" << m_time_max << ") " << std::endl;
     badhealth |= true;
   }
-  if(m_time_min < 0.){
-    std::cerr << "FluxTimeMin: bad (" << m_time_min << "): out of range " << std::endl;
-    badhealth |= true;
-  }
+  //if(m_time_min < 0.){
+  //  std::cerr << "FluxTimeMin: bad (" << m_time_min << "): out of range " << std::endl;
+  //  badhealth |= true;
+  //}
   return !badhealth;
 }
 bool SKSNSimUserConfiguration::CheckFluxTimeMax() const {
@@ -138,6 +138,7 @@ void SKSNSimUserConfiguration::ShowHelpSN(const char *argv0){
     << " [-o,--outdir outputdirectory]"
     << " [--outputformat {\"skroot\" or \"nuance\"}]"
     << " [-m,--snmodel model_name]"
+    << " [-c,--snmodelPNSC model_name]"
     << " [--nuosc 0(NONE)/1(NORMAL)/2(INVERTED)]"
     << " [-d,--distance distance_in_kpc]"
     << " [-g,--fillevent {0(no: just calculate expected num of evt)/1(yes: fill kinematics for detector sim.)}]"
@@ -155,7 +156,7 @@ void SKSNSimUserConfiguration::ShowHelpSN(const char *argv0){
     << " {outputdirectory}"
     << std::endl
     << std::endl;
-  std::cout << "Note: {} is essencial arguments, and [] is optional arguments" << std::endl << std::endl;
+  std::cout << "Note: {} is essential arguments, and [] is optional arguments" << std::endl << std::endl;
   std::cout << "Usage: for old argument format" << std::endl
     << argv0
     << " {model_name}"
@@ -169,8 +170,11 @@ void SKSNSimUserConfiguration::ShowHelpSN(const char *argv0){
     << " -h,--help: show this help" << std::endl
     << " -o,--outdir {outputdirectory}: output directory (default = " << SKSNSimUserConfiguration::GetDefaultOutputDirectory() << " )" << std::endl
     << " -m,--snmodel {model_name}: name of SN flux model (default = " << SKSNSimUserConfiguration::GetDefaultSNModelName() << " ) " << std::endl
+    << " -c,--snmodelPNSC {model_name}: name of SN PNSC flux model (default = '' ) " << std::endl
     << " --nuosc {int}: neutrino oscillation model: 0=NONE / 1=NORMAL / 2=INVERTED ( default = " << (int)SKSNSimUserConfiguration::GetDefaultNeutrinoOscType() << " )" << std::endl
     << " -d,--distance {distance_in_kpc}: distance from SN in unit of kpc ( default = " << SKSNSimUserConfiguration::GetDefaultSNDistanceKPC() << " kpc)" << std::endl
+    << " --sndir {x,y,z}: SN direction in detector coordinates, comma-seperated unit vector"  // added for sndir (patch)
+       " (default = 0,0,-1 i.e., SN below detector)" << std::endl  // added for sndir (patch)
     << " -g,--fillevent [int]: if generate event kinematics for detector simulator: 0 = \"NO(just calculate expected num of evt) / 1 = YES (fill kinematics for detector sim.) (default = " << SKSNSimUserConfiguration::GetDefaultVectorGeneration() << " ). If you just specify \"-g\", turned ON" << std::endl
     << " --neventsperfile {numberofevents}: number of events in one file (default = " << SKSNSimUserConfiguration::GetDefaultNumEventsPerFile() << " )" << std::endl
     << " -s,--seed {randomseed}: random seed (default = " << SKSNSimUserConfiguration::GetDefaultRandomSeed() << " )" << std::endl
@@ -184,6 +188,10 @@ void SKSNSimUserConfiguration::ShowHelpSN(const char *argv0){
     << " --time_nbins {nbins}: number of bins for time (default = " << SKSNSimUserConfiguration::GetDefaultTimeNBins() << " )" << std::endl
     << " --outputformat {\"skroot\" or \"nuance\"}: output format. (default = " << (GetDefaultOFileMode() == MODEOFILE::kSKROOT ? "skroot" : "nuance") << ")" << std::endl
     << " --outprefix {prefix}: prefix of output file name (default = " << SKSNSimUserConfiguration::GetDefaultOutputPrefix() << " )" << std::endl
+    << " --time_revive {time_sec}: RHD/PNSC combination parameter in second (default = " << SKSNSimUserConfiguration::GetDefaultTimeRevive() << " sec )" << std::endl
+    << " --time_shift {time_sec}: RHD/PNSC combination parameter in second (default = " << SKSNSimUserConfiguration::GetDefaultTimeShift() << " sec )" << std::endl
+    << " --tau_decay {time_sec}: RHD/PNSC combination parameter in second (default = " << SKSNSimUserConfiguration::GetDefaultTauDecay() << " sec )" << std::endl
+   
     << std::endl;
   std::cout << "Arguments for old format"  << std::endl
     << " {model_name}: name of SN flux model" << std::endl
@@ -294,10 +302,16 @@ void SKSNSimUserConfiguration::LoadFromArgsSN(int argc, char *argv[]){
       {"runnum",        required_argument, 0,   0},
       {"subrunnum",     required_argument, 0,   0},
       {"outputformat",  required_argument, 0,   0}, // 17
-      {0,                               0, 0,   0}
+      {"snmodelPNSC",   required_argument, 0, 'c'}, // 18
+      {"time_bin_size", required_argument, 0,   0}, // 19
+      {"time_revive",   required_argument, 0,   0}, // 20
+      {"time_shift",    required_argument, 0,   0}, // 21
+      {"tau_decay",     required_argument, 0,   0}, // 22
+      {"sndir",         required_argument, 0,   0}, // 23
+      {0,                               0, 0,   0},
     };
 
-    c = getopt_long(argc, argv, "ho:m:d:g::s:",
+    c = getopt_long(argc, argv, "ho:m:c:d:g::s:",
         long_options, &option_index);
 
     if( c == -1 ) break;
@@ -309,6 +323,7 @@ void SKSNSimUserConfiguration::LoadFromArgsSN(int argc, char *argv[]){
         break;
       case 'o': SetOutputDirectory(std::string(optarg));break;
       case 'm': SetSNBurstFluxModel(optarg); break;
+      case 'c': SetSNBurstPNSCFluxModel(optarg); break; // Cooling model
       case 'd': SetSNDistanceKpc(std::stof(optarg)); break;
       case 'g': if( optarg == 0) SetVectorGeneration(true);
                   else SetVectorGeneration(std::atoi(optarg));
@@ -328,6 +343,16 @@ void SKSNSimUserConfiguration::LoadFromArgsSN(int argc, char *argv[]){
           case 15: SetRunnum(std::atoi(optarg)); break;
           case 16: SetSubRunnum(std::atoi(optarg)); break;
           case 17: SetOFileMode( std::string(optarg) ); break;
+          case 19: SetTimeBinSize( std::atof(optarg) ); break;
+          case 20: SetTimeRevive( std::atof(optarg) ); break;
+          case 21: SetTimeShift( std::atof(optarg) ); break;
+          case 22: SetTauDecay( std::atof(optarg) ); break;
+          case 23: { // patch for sndir
+            double x=0., y=0., z=-1.;
+            sscanf(optarg, "%lf,%lf,%lf", &x, &y, &z);
+            SetSNDir(x,y,z);
+            break;
+          }
           default:
             ShowHelpSN(argv[0]);
             exit(EXIT_FAILURE);
@@ -379,6 +404,7 @@ void SKSNSimUserConfiguration::Dump() const {
   std::cout << "FluxTimeMin (sec) = " << GetFluxTimeMin() << std::endl;
   std::cout << "FluxTimeMax (sec) = " << GetFluxTimeMax() << std::endl;
   std::cout << "TimeNBins = " << GetTimeNBins() << std::endl;
+  std::cout << "TimeBinSize = " << GetTimeBinSize() << std::endl;
   std::cout << "OutputDirecotry = " << GetOutputDirectory() << std::endl;
   std::cout << "OutputPrefix = " << GetOutputPrefix() << std::endl;
   std::cout << "OutputNameTemplate = " << GetOutputNameTemplate() << std::endl;
@@ -395,11 +421,17 @@ void SKSNSimUserConfiguration::Dump() const {
   std::cout << "Runnum = " << GetRunnum() << std::endl;
   std::cout << "SubRunnum = " << GetSubRunnum() << std::endl;
   std::cout << "SNDistance ( kpc ) = " << GetSNDistanceKpc() << std::endl;
+  std::cout << "SNDir = " << GetSNDir()[0] << "," << GetSNDir()[1] << "," << GetSNDir()[2]   // added for sndir (patch)
+            << (m_sn_dir_set ? " (user-set)" : " (default)") << std::endl;  // added for sndir (patch)
   std::cout << "SNBurstFluxModel = " << GetSNBurstFluxModel() << std::endl;
+  std::cout << "SNBurstPNSCFluxModel = " << GetSNBurstPNSCFluxModel() << std::endl;
   std::cout << "DSNBFluxModel = " << GetDSNBFluxModel() << std::endl;
   std::cout << "DSNBFlatFlux = " << GetDSNBFlatFlux() << std::endl;
   std::cout << "NuOscType = " << (int)GetNuOscType() << std::endl;
   std::cout << "RandomSeed = " << GetRandomSeed() << std::endl;
+  std::cout << "TimeRevive = " << GetTimeRevive() << std::endl;
+  std::cout << "TimeShift = " << GetTimeShift() << std::endl;
+  std::cout << "TauDecay = " << GetTauDecay() << std::endl;
   std::cout << "====> Fine?  " << CheckHealth() << std::endl;
 
 }
@@ -411,14 +443,20 @@ void SKSNSimUserConfiguration::Apply( SKSNSimVectorSNGenerator &gen ) const {
   gen.SetTimeMin( GetFluxTimeMin() );
   gen.SetTimeMax( GetFluxTimeMax() );
   gen.SetTimeNBins( GetTimeNBins() );
+  gen.SetTimeBinSize( GetTimeBinSize() );
   gen.SetFlagFillEvent( GetEventVectorGeneration() );
   gen.SetGeneratorVolume( GetEventgenVolume() );
   gen.SetSNDistanceKpc( GetSNDistanceKpc() );
+  if( GetSNDirSet() ) gen.SetSNDir( GetSNDir()[0], GetSNDir()[1], GetSNDir()[2]);  // added for sndir (patch)
   gen.SetGeneratorNuOscType( GetNuOscType() );
   gen.SetRUNNUM( GetRunnum() );
   gen.SetSubRUNNUM( GetSubRunnum() );
   gen.SetRandomSeed( GetRandomSeed() );
+  gen.SetTimeRevive( GetTimeRevive() );
+  gen.SetTimeShift( GetTimeShift() );
+  gen.SetTauDecay( GetTauDecay() );
   std::cout << "getTiemNBins= " << GetTimeNBins() << std::endl;
+  std::cout << "GetTimeBinSize= " << GetTimeBinSize() << std::endl;
 }
 
 void SKSNSimUserConfiguration::Apply( SKSNSimVectorGenerator &gen ) const {

@@ -1,8 +1,8 @@
+#include "SKSNSimVectorGenerator.hh"
 #include <memory>
 #include <TRandom3.h>
 #include "SKSNSimTools.hh"
 #include "SKSNSimFileIO.hh"
-#include "SKSNSimVectorGenerator.hh"
 #include "SKSNSimUserConfiguration.hh"
 
 int main( int argc, char ** argv )
@@ -47,14 +47,17 @@ int main( int argc, char ** argv )
   config->LoadFromArgsSN(argc, argv);
   config->Dump();
 
+  std::unique_ptr<SKSNSimSNFluxNakazatoFormat> flux_nuRHD (new SKSNSimSNFluxNakazatoFormat());
+  flux_nuRHD->SetModel(config->GetSNBurstFluxModel());
 
-  std::unique_ptr<SKSNSimSNFluxNakazatoFormat> flux (new SKSNSimSNFluxNakazatoFormat());
-  flux->SetModel(config->GetSNBurstFluxModel());
+  std::unique_ptr<SKSNSimSNFluxNakazatoFormat> flux_PNSC (new SKSNSimSNFluxNakazatoFormat());
+  flux_PNSC->SetModel(config->GetSNBurstPNSCFluxModel());
   
-
 	/*-----Geneartion-----*/
   std::unique_ptr<SKSNSimVectorSNGenerator> generator = std::make_unique<SKSNSimVectorSNGenerator>();
-  generator->AddFluxModel(std::move(flux));
+  generator->SetCombinedFlag(true);
+  generator->AddFluxModel(std::move(flux_nuRHD));
+  generator->AddFluxModel(std::move(flux_PNSC));
   config->Apply(*generator);
   generator->SetRandomGenerator(config->GetRandomGenerator());
   auto buffer = generator->GenerateEvents();

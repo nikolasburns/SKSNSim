@@ -241,6 +241,7 @@ class SKSNSimVectorGenerator {
     SKSNSIMENUM::TANKVOLUME m_generator_volume;
     std::shared_ptr<TRandom> randomgenerator;
     unsigned int m_randomseed;
+    bool m_is_combined;
     //===================== end configuration
 
 
@@ -254,11 +255,15 @@ class SKSNSimVectorGenerator {
       m_runnum((int)SKSNSIMENUM::SKPERIODRUN::SKMC),
       m_subrunnum(0),
       m_flat_pos_energy ( false ),
-      m_generator_volume(SKSNSIMENUM::TANKVOLUME::kIDFULL)
+      m_generator_volume(SKSNSIMENUM::TANKVOLUME::kIDFULL),
+      m_is_combined( false )
     {}
     ~SKSNSimVectorGenerator(){}
     void AddFluxModel(SKSNSimFluxModel *fm){ fluxmodels.push_back(std::move(std::unique_ptr<SKSNSimFluxModel>(fm))); SetMaximumHitProbability(); } // after this, the pointer will be managed by SKSNSimVectorGenerator class
     void AddXSecModel(SKSNSimCrosssectionModel *xm){ xsecmodels.push_back(std::move(std::unique_ptr<SKSNSimCrosssectionModel>(xm))); SetMaximumHitProbability(); } // after this, the pointer will be managed by SKSNSimVectorGenerator class
+    void SetCombinedFlag(bool b) { m_is_combined = b; }
+    bool GetCombinedFlag() { return m_is_combined; }
+
     SKSNSimSNEventVector GenerateEventIBD();
     SKSNSimSNEventVector GenerateEventIBDFlat();
     SKSNSimSNEventVector GenerateEvent() { return m_flat_pos_energy? GenerateEventIBDFlat(): GenerateEventIBD(); }; // Tentatively, supporting only IBD channel
@@ -299,6 +304,7 @@ class SKSNSimVectorGenerator {
 
 class SKSNSimVectorSNGenerator {
   private:
+    std::vector<double> timeBins;
     std::vector<std::unique_ptr<SKSNSimFluxModel>> fluxmodels;
     std::map<XSECTYPE, std::shared_ptr<SKSNSimCrosssectionModel>> xsecmodels;
     SKSNSimSNEventVector GenerateSNEvent(){
@@ -315,17 +321,24 @@ class SKSNSimVectorSNGenerator {
     double m_generator_time_min;
     double m_generator_time_max;
     size_t m_time_nbins;
+    double m_time_bin_size;
     bool   m_fill_event;
     SKSNSIMENUM::TANKVOLUME m_generator_volume;
 
     // Phsics assumption
     SKSNSIMENUM::NEUTRINOOSCILLATION m_nuosc_type;
+    double m_time_revive;
+    double m_time_shift;
+    double m_tau_decay;
 
     // SN direction
     int m_sn_date[3];
     int m_sn_time[3];
     double m_sn_dir[3];
     double m_distance_kpc;
+    bool m_sn_dir_set;  // added for sndir functionality (patch)
+
+    bool m_is_combined;
 
     // double m_max_hit_probability; // maximum of (flux) x (xsec) // should be updated with new flux or xsec models
 
@@ -342,13 +355,16 @@ class SKSNSimVectorSNGenerator {
     static void determineAngleNuebarP( TRandom &rng, const SKSNSimXSecIBDSV & xsec, const double nuEne, double & eEne, double & eTheta, double & ePhi );
     static void determineAngleElastic( TRandom &rng, const SKSNSimXSecNuElastic & xsec, const int nReact, const double nuEne, double & eEne, double & eTheta, double & ePhi, int &iSkip );
     static void determineAngleNueO(TRandom &rng, SKSNSimXSecNuOxygen &xsec, const int Reaction, const int State, const int Ex_state, const int channel, const double nuEne, double & eEne, double & eTheta, double & ePhi );
-
+    void GenerateTimeBins();
     
   public:
     SKSNSimVectorSNGenerator();
     ~SKSNSimVectorSNGenerator(){ SKSNSimTools::DumpDebugMessage(" dtor of SKSNSimVectorSNGenerator");}
     void AddFluxModel(SKSNSimFluxModel *fm){ fluxmodels.push_back(std::move(std::unique_ptr<SKSNSimFluxModel>(fm))); /* SetMaximumHitProbability(); */ } // after this, the pointer will be managed by SKSNSimVectorGenerator class
     void AddFluxModel(std::unique_ptr<SKSNSimFluxModel> fm){ fluxmodels.push_back(std::move(fm)); /* SetMaximumHitProbability(); */ } // after this, the pointer will be managed by SKSNSimVectorGenerator class
+    void SetCombinedFlag(bool b) { m_is_combined = b; }
+    bool GetCombinedFlag() { return m_is_combined; }
+    
     std::vector<SKSNSimSNEventVector> GenerateEvents();
 
     //========================================
@@ -363,12 +379,32 @@ class SKSNSimVectorSNGenerator {
     double SetTimeMin(const double e){ m_generator_time_min = e; return m_generator_time_min;}
     double SetTimeMax(const double e){ m_generator_time_max = e; return m_generator_time_max;}
     size_t SetTimeNBins(const size_t n) { m_time_nbins = n; return GetTimeNBins(); }
+    double SetTimeBinSize(const double e) { m_time_bin_size = e; return GetTimeBinSize(); }
     double GetTimeMin() const {return m_generator_time_min;}
     double GetTimeMax() const {return m_generator_time_max;}
     size_t GetTimeNBins() const {return m_time_nbins;}
+    size_t GetTimeBinSize() const {return m_time_bin_size;}
     double GetTimeBinWidth() const { return (GetTimeMax() - GetTimeMin())/(double)GetTimeNBins(); }
     bool   GetFlagFillEvent() const { return m_fill_event; }
     bool   SetFlagFillEvent(const bool f){ m_fill_event = f; return GetFlagFillEvent(); }
+    
+    double SetTimeRevive(const double e) { m_time_revive = e; return GetTimeRevive(); }
+    double SetTimeShift(const double e) { m_time_shift = e; return GetTimeShift(); }
+    double SetTauDecay(const double e) { m_tau_decay = e; return GetTauDecay(); }
+    double GetTimeRevive() const {return m_time_revive;}
+    double GetTimeShift() const {return m_time_shift;}
+    double GetTauDecay() const {return m_tau_decay;}
+
+    // Added for sndir functionality (patch)
+    void SetSNDir(const double x, const double y, const double z) {
+      m_sn_dir[0] = x;
+      m_sn_dir[1] = y;
+      m_sn_dir[2] = z;
+      m_sn_dir_set = true;
+    }
+    const double* GetSNDir() const { return m_sn_dir; }
+    bool GetSNDirSet() const { return m_sn_dir_set; }
+
     unsigned int GetRandomSeed() const {return m_randomseed; }
     unsigned int SetRandomSeed(unsigned int s) { m_randomseed = s; return GetRandomSeed(); } // This does NOT apply the seed. Just holding the runtime-information.
     void   SetRandomGenerator(std::shared_ptr<TRandom> rng) { randomgenerator = rng; }

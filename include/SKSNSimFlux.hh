@@ -44,10 +44,12 @@ class SKSNSimBinnedFluxModel : public SKSNSimFluxModel {
     virtual int GetNBinsTime() const = 0;
     virtual double GetBinWidthEne(int b) const = 0;
     virtual double GetBinWidthTime(int b) const = 0;
+    virtual const std::vector<double>& GetTimeBins() const = 0;
 };
 
 class SKSNSimDSNBFluxCustom : public SKSNSimBinnedFluxModel {
   private:
+    std::vector<double> tmesh; // useless, needed to have GetTimeBins
     std::unique_ptr<std::vector<std::pair<double,double>>> ene_flux_v; /* size_t -> <energy, flux> */
     double lower_energy_bin_width;
     double upper_energy_bin_width;
@@ -85,6 +87,7 @@ class SKSNSimDSNBFluxCustom : public SKSNSimBinnedFluxModel {
     int GetNBinsTime() const { return 1; }
     double GetBinWidthEne(int b) const { return getBinWidth(); }
     double GetBinWidthTime(int b) const { return 0.0; }
+    const std::vector<double>& GetTimeBins() const { return tmesh; }
     double CalcIntegratedFlux() const;
     double FindMaxFluxTime() const {return 0.0;}
 };
@@ -104,16 +107,17 @@ class SKSNSimSNFluxCustom : public SKSNSimBinnedFluxModel {
     void LoadFluxFile(std::string);
     SKSNSimSNFluxCustom(std::string fname){ LoadFluxFile(fname); }
     double GetFlux(const double e, const double t, const FLUXNUTYPE type) const;
-    inline double GetEnergyLimitMax() const { return enue.front().back(); }
-    inline double GetEnergyLimitMin() const { return enue.front().front(); }
-    inline double GetTimeLimitMax() const { return tmesh.back(); }
-    inline double GetTimeLimitMin() const { return tmesh.front(); }
-    inline const std::set<FLUXNUTYPE> &GetSupportedNuTypes() const { return supportedType; }
-    inline int GetNBinsEne() const { return getNBinsEne(); }
-    inline int GetNBinsTime() const { return getNBinsTime(); }
-    inline double GetBinWidthEne(int b) const { return getBinWidthEne(b); }
-    inline double GetBinWidthTime(int b) const { return getBinWidthTime(b); } 
-    inline double FindMaxFluxTime() const {return 0.0;} // TODO at this momenent, this function does NOT work
+    double GetEnergyLimitMax() const { return enue.front().back(); }
+    double GetEnergyLimitMin() const { return enue.front().front(); }
+    double GetTimeLimitMax() const { return tmesh.back(); }
+    double GetTimeLimitMin() const { return tmesh.front(); }
+    const std::set<FLUXNUTYPE> &GetSupportedNuTypes() const { return supportedType; }
+    int GetNBinsEne() const { return getNBinsEne(); }
+    int GetNBinsTime() const { return getNBinsTime(); }
+    double GetBinWidthEne(int b) const { return getBinWidthEne(b); }
+    double GetBinWidthTime(int b) const { return getBinWidthTime(b); } 
+    double FindMaxFluxTime() const {return 0.0;} // TODO at this momenent, this function does NOT work
+    const std::vector<double>& GetTimeBins() const { return tmesh; }
 };
 
 class SKSNSimSNFluxNakazatoFormat : public SKSNSimBinnedFluxModel {
@@ -146,17 +150,18 @@ class SKSNSimSNFluxNakazatoFormat : public SKSNSimBinnedFluxModel {
         exit(EXIT_FAILURE);
       }
     }
-    inline double GetFlux(const double e, const double t, const FLUXNUTYPE type) const { return flux->GetFlux(e,t,type); }
-    inline double GetEnergyLimitMax() const { return flux->GetEnergyLimitMax(); }
-    inline double GetEnergyLimitMin() const { return flux->GetEnergyLimitMin(); }
-    inline double GetTimeLimitMax() const { return flux->GetTimeLimitMax(); }
-    inline double GetTimeLimitMin() const { return flux->GetTimeLimitMin(); }
-    inline const std::set<FLUXNUTYPE> &GetSupportedNuTypes() const { return flux->GetSupportedNuTypes(); }
-    inline int GetNBinsEne()        const { return flux->GetNBinsEne(); }
-    inline int GetNBinsTime()       const { return flux->GetNBinsTime(); }
-    inline double GetBinWidthEne(int b)  const { return flux->GetBinWidthEne(b); }
-    inline double GetBinWidthTime(int b) const { return flux->GetBinWidthTime(b); }
-    inline double FindMaxFluxTime() const {return flux->FindMaxFluxTime();}
+    double GetFlux(const double e, const double t, const FLUXNUTYPE type) const { return flux->GetFlux(e,t,type); }
+    double GetEnergyLimitMax() const { return flux->GetEnergyLimitMax(); }
+    double GetEnergyLimitMin() const { return flux->GetEnergyLimitMin(); }
+    double GetTimeLimitMax() const { return flux->GetTimeLimitMax(); }
+    double GetTimeLimitMin() const { return flux->GetTimeLimitMin(); }
+    const std::set<FLUXNUTYPE> &GetSupportedNuTypes() const { return flux->GetSupportedNuTypes(); }
+    int GetNBinsEne()        const { return flux->GetNBinsEne(); }
+    int GetNBinsTime()       const { return flux->GetNBinsTime(); }
+    double GetBinWidthEne(int b)  const { return flux->GetBinWidthEne(b); }
+    double GetBinWidthTime(int b) const { return flux->GetBinWidthTime(b); }
+    double FindMaxFluxTime() const {return flux->FindMaxFluxTime();}
+    const std::vector<double>& GetTimeBins() const { return flux->GetTimeBins(); }
 };
 
 class SKSNSimSNFluxNakazato : public SKSNSimBinnedFluxModel {
@@ -172,17 +177,18 @@ class SKSNSimSNFluxNakazato : public SKSNSimBinnedFluxModel {
       }
     }
     ~SKSNSimSNFluxNakazato(){}
-    inline double GetFlux(const double e, const double t, const FLUXNUTYPE type) const { return flux->GetFlux(e,t,type); }
-    inline double GetEnergyLimitMax() const { return flux->GetEnergyLimitMax(); }
-    inline double GetEnergyLimitMin() const { return flux->GetEnergyLimitMin(); }
-    inline double GetTimeLimitMax() const { return flux->GetTimeLimitMax(); }
-    inline double GetTimeLimitMin() const { return flux->GetTimeLimitMin(); }
-    inline const std::set<FLUXNUTYPE> &GetSupportedNuTypes() const { return flux->GetSupportedNuTypes(); }
-    inline int GetNBinsEne()        const { return flux->GetNBinsEne(); }
-    inline int GetNBinsTime()       const { return flux->GetNBinsTime(); }
-    inline double GetBinWidthEne(int b)  const { return flux->GetBinWidthEne(b); }
-    inline double GetBinWidthTime(int b) const { return flux->GetBinWidthTime(b); }
-    inline double FindMaxFluxTime() const {return flux->FindMaxFluxTime();}
+    double GetFlux(const double e, const double t, const FLUXNUTYPE type) const { return flux->GetFlux(e,t,type); }
+    double GetEnergyLimitMax() const { return flux->GetEnergyLimitMax(); }
+    double GetEnergyLimitMin() const { return flux->GetEnergyLimitMin(); }
+    double GetTimeLimitMax() const { return flux->GetTimeLimitMax(); }
+    double GetTimeLimitMin() const { return flux->GetTimeLimitMin(); }
+    const std::set<FLUXNUTYPE> &GetSupportedNuTypes() const { return flux->GetSupportedNuTypes(); }
+    int GetNBinsEne()        const { return flux->GetNBinsEne(); }
+    int GetNBinsTime()       const { return flux->GetNBinsTime(); }
+    double GetBinWidthEne(int b)  const { return flux->GetBinWidthEne(b); }
+    double GetBinWidthTime(int b) const { return flux->GetBinWidthTime(b); }
+    double FindMaxFluxTime() const {return flux->FindMaxFluxTime();}
+    const std::vector<double>& GetTimeBins() const { return flux->GetTimeBins(); }
 };
 
 class SKSNSimFluxDSNBHoriuchi : SKSNSimFluxModel {
